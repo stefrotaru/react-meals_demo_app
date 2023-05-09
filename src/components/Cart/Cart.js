@@ -1,15 +1,15 @@
-import { useContext, useState } from "react";
+import React, { useContext, useState } from "react";
 
 import Modal from "../UI/Modal";
 import CartItem from "./CartItem";
 import classes from "./Cart.module.css";
 import CartContext from "../../store/cart-context";
-import ConfettiExplosion from "react-confetti-explosion";
 import Checkout from "./Checkout";
 
 const Cart = (props) => {
-  const [isExploding, setIsExploding] = useState(false);
   const [isCheckout, setIsCheckout] = useState(false);
+  const [isSubmitting, setIsSubmiting] = useState(false);
+  const [didSubmit, setDidSubmit] = useState(false);
   const cartCtx = useContext(CartContext);
 
   const totalAmount = `$${cartCtx.totalAmount.toFixed(2)}`;
@@ -23,20 +23,24 @@ const Cart = (props) => {
     cartCtx.addItem({ ...item, amount: 1 });
   };
 
-  const confettiHandler = () => {
-    if (isExploding === false) {
-      setIsExploding(true);
-    //   cartCtx.removeAll();
-      setTimeout(() => {
-        setIsExploding(false);
-      }, 2000);
-    }
-  };
-
   const orderHandler = () => {
     setIsCheckout(true);
-    confettiHandler();
   };
+
+  const submitOrderHandler = async (userData) => {
+    setIsSubmiting(true);
+    const response = await fetch('https://react-firebase-example-a7ca9-default-rtdb.firebaseio.com/orders.json', {
+      method: 'POST',
+      body: JSON.stringify({
+        user: userData,
+        orderedItems: cartCtx.items
+      })
+    });
+    setIsSubmiting(false);
+    setDidSubmit(true);
+    cartCtx.removeAll();
+  };
+
   const cartItems = (
     <ul className={classes["cart-items"]}>
       {cartCtx.items.map((item) => (
@@ -65,16 +69,32 @@ const Cart = (props) => {
     </div>
   );
 
+  const cartModalContent = <React.Fragment>
+    {cartItems}
+    <div className={classes.total}>
+      <span>Total Amount</span>
+      <span>{totalAmount}</span>
+    </div>
+    {isCheckout && <Checkout onConfirm={submitOrderHandler} onCancel={props.onClose} />}
+    {!isCheckout && modalActions}
+  </React.Fragment>
+
+  const isSubmittingModalContent = <p>Sending order data...</p>;
+
+  const didSubmitModalContent = <React.Fragment>
+    <p>Succesfully sent the order!</p>
+    <div className={classes.actions}>
+      <button className={classes.button} onClick={props.onClose}>
+        Close
+      </button>
+    </div>
+  </React.Fragment>;
+
   return (
     <Modal onClose={props.onClose}>
-      {isExploding && <ConfettiExplosion />}
-      {cartItems}
-      <div className={classes.total}>
-        <span>Total Amount</span>
-        <span>{totalAmount}</span>
-      </div>
-      {isCheckout && <Checkout onCancel={props.onClose} />}
-      {!isCheckout && modalActions}
+      {!isSubmitting && !didSubmit && cartModalContent}
+      {isSubmitting && isSubmittingModalContent}
+      {!isSubmitting && didSubmit && didSubmitModalContent}
     </Modal>
   );
 };
